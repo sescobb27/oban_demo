@@ -135,6 +135,8 @@ Unique jobs are guaranteed through transactional locks and database queries: **_
 
 ---
 
+<!-- _class: invert -->
+
 ## Option 1
 
 We can insert each job one by one in a loop, this works well in a simple case but at titan we sometimes need to enqueue more than 300k jobs so this is not suitable as can take days
@@ -155,6 +157,8 @@ We can batch insert records in batches inside a loop, this works well in more co
 - [Caveats 3.]
 
 ---
+
+<!-- _class: invert -->
 
 ```elixir
 defmodule TestScheduler do
@@ -188,6 +192,8 @@ We can use Elixir concurrency and a big pool of connections to insert jobs in pa
 
 ---
 
+<!-- _class: invert -->
+
 ```elixir
 defmodule TestScheduler do
   @one_week 604_800
@@ -216,6 +222,8 @@ For this option we will need to introduce unique indexes at the DB level because
 
 ---
 
+<!-- _class: invert -->
+
 ## Partial indexes
 
 We can use partial indexes if we only need unique jobs in some queues
@@ -233,6 +241,8 @@ create(
 
 ## Full indexes
 
+<!-- _class: invert -->
+
 We can use full indexes if we need unique jobs across all queues
 
 ```elixir
@@ -246,6 +256,8 @@ Using unique indexes will let us use `insert_all` and `on_conflict: :nothing` wh
 _NOTE_: we are not use `insert_all` manually, we can, but instead we are going to rely on Oban's implementation.
 
 ---
+
+<!-- _class: invert -->
 
 ```elixir
 defmodule TestScheduler do
@@ -272,6 +284,8 @@ end
 ```
 
 ---
+
+<!-- _class: invert -->
 
 With this tunning we can insert 300k jobs in ~7sec
 
