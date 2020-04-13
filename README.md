@@ -19,3 +19,31 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/oban_demo](https://hexdocs.pm/oban_demo).
 
+# Scheduling Jobs
+
+## Batches Using plain Multis and Transactions
+
+```elixir
+batch_insert_prev = System.monotonic_time(:millisecond)
+ObanDemo.batch_insert(1..100_000)
+batch_insert_next = System.monotonic_time(:millisecond)
+batch_insert_next - batch_insert_prev
+```
+
+## Batches Using Parallel Multis and Transactions
+
+```elixir
+parallel_multi_batch_insert_prev = System.monotonic_time(:millisecond)
+ObanDemo.parallel_multi_batch_insert(1..100_000)
+parallel_multi_batch_insert_next = System.monotonic_time(:millisecond)
+parallel_multi_batch_insert_next - parallel_multi_batch_insert_prev
+```
+
+## Batches Using Parallel insert_all
+
+```elixir
+parallel_batch_insert_prev = System.monotonic_time(:millisecond)
+ObanDemo.parallel_batch_insert(1..100_000)
+parallel_batch_insert_next = System.monotonic_time(:millisecond)
+parallel_batch_insert_next - parallel_batch_insert_prev
+```
