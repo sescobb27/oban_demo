@@ -33,6 +33,23 @@ This works but is not ideal, so i start researching about asyncrhonous jobs proc
 
 ---
 
+# Other Options
+
+- https://github.com/samsondav/rihanna
+- https://github.com/sheharyarn/que
+- https://github.com/akira/exq
+
+---
+
+So why oban?
+
+- Rihanna doesn’t support multiple queues at this moment (it will but we don’t know when)
+- Exq only works with redis, and redis is not persistent (something that we need)
+- Que uses mnesia and it haven’t been updated in a while (Aug 21th 2019)
+- Oban has more resources than the rest of the other solutions
+
+---
+
 # what is oban?
 
 [Oban](https://github.com/sorentwo/oban) is a robust job processing library which uses PostgreSQL for storage and coordination.
@@ -113,7 +130,9 @@ There are a couple of ways for inserting a large number of unique Jobs, taking a
 
 ---
 
-# Oban Unique Options
+# Lets see the ways we can insert Oban jobs as fast as possible
+
+---
 
 ## Option 1
 
@@ -281,13 +300,54 @@ The problem now is that some jobs need to live longer than other jobs, we need t
 
 ---
 
-- [CustomPruner](https://gist.github.com/sescobb27/5e066ee06174473602bb08361f7a8bea#file-custom_pruner-ex)
-
 - [Upcoming Enhancement - Pruner Behaviour](https://github.com/sorentwo/oban/issues/209)
 
 ---
 
 [DEMO](https://github.com/sescobb27/oban_demo)
+
+---
+
+# Questions And Answers
+
+Given:
+
+- we have node 1 and 2
+- job A runs on node 1
+- now we crash node 1 (same, without notice), and delete node 1 completely from the cluster
+
+_Question_: will job A get rerun? by node 2? or will it get stuck forever? what if node 1 didn't crash but lost connection to the database (therefore no heartbeat), will the job still be processed?, will this job get processed twice?
+
+---
+
+_Answer_: if the node goes away or is restarted the task can be picked up by other node as the README says: **Job Safety — When a process crashes or the BEAM is terminated executing jobs aren't lost**—they are quickly recovered by other running nodes or immediately when the node is restarted. So that means jobs are going to be re-run by other node.
+
+Oban guarantee at-least-once execution of jobs regardless of node failures, netsplits or even database restarts.
+
+---
+
+it strives to never execute a job more than once, however, this may be unavoidable in certain failure scenarios such as
+
+- a node losing its connection to the database
+- a node dying during execution of a job
+
+For this reason jobs should be made idempotent where possible.
+
+---
+
+_Question_: Let's say we have multiple jobs that depends on the result of another job. Is there a way to ensure the second job to run on the same node that runs the first job? In other words, is there a way to specify the node to run on when enqueuing a job?
+
+---
+
+_Answer_: I don't think so, i don't know any queue or job processing system that works in this way, as they try to parallelize the jobs running on multiple processes/nodes, we would need to build a solution for this case, fork oban and try to add this feature or maybe keep using our current solution and use oban when this is not required
+
+---
+
+_Question_: What if we need to notify job completion (failed/succeeded)?
+
+---
+
+_Answer_: when we require to notify job completion we create a job in another queue (e.g notification_queue) for reporting back to the service interested in the notification, so we can retry this a high level of times. Then the other service will be consuming (polling) from that queue, jobs to mark jobs as failed/succeeded in its own service
 
 ---
 
@@ -300,3 +360,23 @@ The problem now is that some jobs need to live longer than other jobs, we need t
 **GOTCHA 2.** - We can't insert infinity records to PostgreSQL at once, so we need to insert sane default number of records, in this case 1000 records.
 
 **GOTCHA 3.** - As we are inserting a big amount of records to the DB we need to increase repo's timeouts as the transaction is going to take more than 15s (the default timeout)
+
+---
+
+# Resources
+
+- https://hex.pm/packages/oban
+- #oban channel on elixir slack
+- https://elixircasts.io/job-processing-with-oban
+- https://elixirforum.com/t/oban-reliable-and-observable-job-processing/22449
+- https://sorentwo.com/2019/07/18/oban-recipes-part-1-unique-jobs.html
+- https://sorentwo.com/2019/07/22/oban-recipes-part-2-recursive-jobs.html
+
+---
+
+- https://sorentwo.com/2019/08/02/oban-recipes-part-3-reliable-scheduling.html
+- https://sorentwo.com/2019/08/21/oban-recipes-part-4-reporting-progress.html
+- https://sorentwo.com/2019/09/17/oban-recipes-part-5-batch-jobs.html
+- https://sorentwo.com/2019/10/17/oban-recipes-part-6-expected-failures.html
+- https://sorentwo.com/2019/11/05/oban-recipes-part-7-splitting-queues.html
+- https://dev.to/calvinsadewa/implementing-message-outbox-pattern-with-oban-131
