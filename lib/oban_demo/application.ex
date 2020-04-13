@@ -9,6 +9,7 @@ defmodule ObanDemo.Application do
     children = [
       # Starts a worker by calling: ObanDemo.Worker.start_link(arg)
       # {ObanDemo.Worker, arg}
+      {ObanDemo.Repo, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
