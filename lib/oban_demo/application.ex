@@ -8,7 +8,8 @@ defmodule ObanDemo.Application do
   def start(_type, _args) do
     children = [
       {ObanDemo.Repo, []},
-      {Oban, oban_config()}
+      {Oban, oban_config()},
+      {ObanDemo.Pruners.FastPruner, fast_pruner_config()}
     ]
 
     opts = [strategy: :one_for_one, name: ObanDemo.Supervisor]
@@ -26,5 +27,9 @@ defmodule ObanDemo.Application do
     else
       opts
     end
+  end
+
+  defp fast_pruner_config() do
+    [prune: {:maxage, :timer.seconds(20)}, queues: [:batch_queue]]
   end
 end
