@@ -1,7 +1,7 @@
 defmodule ObanDemo do
   alias ObanDemo.{Schedulers, Repo}
 
-  import Ecto.Query, only: [from: 2]
+  import Ecto.Query
 
   # test case 1
   def batch_insert(stream) do
@@ -21,5 +21,13 @@ defmodule ObanDemo do
   def re_schedule_oban_jobs(ids) do
     from(job in Oban.Job, where: job.id in ^ids)
     |> Repo.update_all(set: [state: "available", attempt: 0, discarded_at: nil])
+  end
+
+  def mark_jobs_as_completed(queue) do
+    str_queue = "#{queue}"
+
+    Oban.Job
+    |> where([j], j.queue in [^str_queue])
+    |> Repo.update_all(set: [state: "completed", attempted_at: DateTime.utc_now()])
   end
 end
