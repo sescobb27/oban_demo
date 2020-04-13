@@ -1,9 +1,9 @@
 ---
 marp: true
-theme: uncover
+theme: gaia
 ---
 
-# Oban at Titan
+# Oban at TubiTV - Titan
 
 ## by: Simon Escobar Benitez
 
@@ -11,25 +11,22 @@ theme: uncover
 
 # Why Oban?
 
-At tubi we are using a handcrafted solution for processing background jobs, but that solution had a couple of problems like durability and zombie jobs.
+At titan we are using a handcrafted solution for processing background jobs, but that solution had a couple of problems like durability and zombie jobs.
+
+Our current solution for background jobs has the following flow:
 
 ---
 
-our current solution for background jobs has the following flow:
-
-- from controller we enqueue some jobs to run in a different service
-- each service is polling enqueued jobs from controller and starts running them
-- once the job is finished it will trigger a sync notification to controller (via GRPC) so controller mark the job as completed/failed
-
----
-
-Then problem now is that sometimes because reasons (timeouts, service is being re-deployed, etc), the notification wasn't delivered so that job becames in a zombie job.
-
-for this reason we created a job process checker that is in charge of querying zombie jobs in controller (jobs that their statuses haven't changed in a period of time) and ask for their status in the corresponding service
+- From controller we enqueue some jobs to run in a different service
+- Each service is polling enqueued jobs from controller and starts running them
+- Once the job is finished it will trigger a sync notification to controller (via GRPC) so controller mark the job as completed/failed
+- The problem now is that sometimes because timeouts, service is being re-deployed, etc, the notification isn't delivered so that job becames in a zombie job.
 
 ---
 
-This works but is not ideal, so i start researching about asyncrhonous jobs processing tools already implemented in elixir and found [Oban](https://github.com/sorentwo/oban)
+As a workaround for this problem we created a job process checker that is in charge of querying zombie jobs in controller (jobs that their statuses haven't changed in a period of time) and asked for their status in the corresponding service
+
+This works but is not ideal, so I started researching about asyncrhonous jobs processing tools already implemented in elixir and found [Oban](https://github.com/sorentwo/oban)
 
 ---
 
@@ -41,7 +38,7 @@ This works but is not ideal, so i start researching about asyncrhonous jobs proc
 
 ---
 
-So why oban?
+So, Why Oban?
 
 - Rihanna doesn’t support multiple queues at this moment (it will but we don’t know when)
 - Exq only works with redis, and redis is not persistent (something that we need)
@@ -50,13 +47,11 @@ So why oban?
 
 ---
 
-# what is oban?
+# What Is Oban?
 
 [Oban](https://github.com/sorentwo/oban) is a robust job processing library which uses PostgreSQL for storage and coordination.
 
----
-
-Oban's primary goals are reliability, consistency and observability.
+It's primary goals are reliability, consistency and observability.
 
 It is fundamentally different from other background job processing tools because it retains job data for historic metrics and inspection. You can leave your application running indefinitely without worrying about jobs being lost or orphaned due to crashes.
 
@@ -64,9 +59,9 @@ It is fundamentally different from other background job processing tools because
 
 # Advantages Over Other Tools
 
-**Fewer Dependencies** — If you are running a web app there is a very good chance that you're running on top of a RDBMS. Running your job queue within PostgreSQL minimizes system dependencies and simplifies data backups.
-
 ---
+
+**Fewer Dependencies** — If you are running a web app there is a very good chance that you're running on top of a RDBMS. Running your job queue within PostgreSQL minimizes system dependencies and simplifies data backups.
 
 **Transactional Control** — Enqueue a job along with other database changes, ensuring that everything is committed or rolled back atomically.
 
@@ -76,29 +71,29 @@ It is fundamentally different from other background job processing tools because
 
 # Advanced Features
 
+---
+
 **Isolated Queues** — Jobs are stored in a single table but are executed in distinct queues. Each queue runs in isolation, ensuring that a job in a single slow queue can't back up other faster queues (GenServers).
 
 **Queue Control** — Queues can be started, stopped, paused, resumed and scaled independently at runtime across all running nodes (even in environments like Heroku, without distributed Erlang).
 
----
-
 **Resilient Queues** — Failing queries won't crash the entire supervision tree, instead they trip a circuit breaker and will be retried again in the future.
+
+---
 
 **Job Killing** — Jobs can be killed in the middle of execution regardless of which node they are running on. This stops the job at once and flags it as discarded.
 
----
-
 **Triggered Execution** — Database triggers ensure that jobs are dispatched as soon as they are inserted into the database.
 
-**Unique Jobs** — Duplicate work can be avoided through unique job controls. Uniqueness can be enforced at the argument, queue and worker level for any period of time [GOTCHA 1.].
+**Unique Jobs** — Duplicate work can be avoided through unique job controls. Uniqueness can be enforced at the argument, queue and worker level for any period of time
+
+- [Caveats 1.]
 
 ---
 
 **Scheduled Jobs** — Jobs can be scheduled at any time in the future, down to the second.
 
 **Periodic (CRON) Jobs** — Automatically enqueue jobs on a cron-like schedule. Duplicate jobs are never enqueued, no matter how many nodes you're running.
-
----
 
 **Job Priority** — Prioritize jobs within a queue to run ahead of others.
 
@@ -130,7 +125,13 @@ There are a couple of ways for inserting a large number of unique Jobs, taking a
 
 ---
 
-# Lets see the ways we can insert Oban jobs as fast as possible
+# Oban Unique Jobs
+
+---
+
+The unique jobs feature lets you specify constraints to prevent enqueuing duplicate jobs. Uniquness is based on a combination of `args`, `queue`, `worker`, `state` and `insertion time`. It is configured at the worker or job level.
+
+Unique jobs are guaranteed through transactional locks and database queries: **_they do not rely on unique constraints in the database_**. This makes uniquness entirely configurable by application code, without the need for database migrations.
 
 ---
 
@@ -147,7 +148,11 @@ Oban.insert(job)
 
 ## Option 2
 
-We can batch insert records in batches inside a loop, this works well in more complex cases but not when enqueueing more than 100k jobs as this can take hours [GOTCHA 2.][gotcha 3.]
+We can batch insert records in batches inside a loop, this works well in more complex cases but not when enqueueing more than 100k jobs as this can take hours.
+
+- [Caveats 2.]
+
+- [Caveats 3.]
 
 ---
 
@@ -205,7 +210,7 @@ It works but still is taking a couple of hours to insert all the jobs, so, if we
 
 ---
 
-## Option 4 and Final
+## Option 4
 
 For this option we will need to introduce unique indexes at the DB level because we are going to use `insert_all` which is a postgres feature for batch inserting records into the database, but as we need unique jobs, we need to guarantee that each inserted job is unique by the queue and its arguments.
 
@@ -236,7 +241,9 @@ create index("oban_jobs", [:queue, :args], unique: true)
 
 ---
 
-This will let us use `insert_all` and `on_conflict: :nothing` which will omit already inserted jobs
+Using unique indexes will let us use `insert_all` and `on_conflict: :nothing` which will omit already inserted jobs
+
+_NOTE_: we are not use `insert_all` manually, we can, but instead we are going to rely on Oban's implementation.
 
 ---
 
@@ -286,21 +293,15 @@ iex(22)>
 
 Oban has a out of the box pruner which is in charge of deleting old jobs that are not longer needed (finished/discarded) and this can be by `maxlength` or `maxage`
 
+- [Upcoming Enhancement - Pruner Behaviour](https://github.com/sorentwo/oban/issues/209)
+
 ---
 
 Pruning by `maxlength` means that we will prune jobs after we reach a given amount of enqueued jobs (we are only going to prune finished/discarded jobs) this is the default setting with a value of 1000
 
----
-
 Pruning by `maxage` means that we will prune jobs after a given period of time, old jobs that are older than the given period of time are going to be deleted
 
----
-
 The problem now is that some jobs need to live longer than other jobs, we need to delete some scheduled jobs every day but still keep some other jobs for a couple of weeks, so we end up building our own custom pruner with the same logic as Oban's default pruner
-
----
-
-- [Upcoming Enhancement - Pruner Behaviour](https://github.com/sorentwo/oban/issues/209)
 
 ---
 
@@ -310,21 +311,23 @@ The problem now is that some jobs need to live longer than other jobs, we need t
 
 # Questions And Answers
 
+---
+
 Given:
 
 - we have node 1 and 2
 - job A runs on node 1
 - now we crash node 1 (same, without notice), and delete node 1 completely from the cluster
 
-_Question_: will job A get rerun? by node 2? or will it get stuck forever? what if node 1 didn't crash but lost connection to the database (therefore no heartbeat), will the job still be processed?, will this job get processed twice?
+**_Question_**: will job A get rerun? by node 2? or will it get stuck forever? what if node 1 didn't crash but lost connection to the database (therefore no heartbeat), will the job still be processed?, will this job get processed twice?
 
 ---
 
-_Answer_: if the node goes away or is restarted the task can be picked up by other node as the README says: **Job Safety — When a process crashes or the BEAM is terminated executing jobs aren't lost**—they are quickly recovered by other running nodes or immediately when the node is restarted. So that means jobs are going to be re-run by other node.
+**_Answer_**: if the node goes away or is restarted the task can be picked up by other node as the README says: **Job Safety — When a process crashes or the BEAM is terminated executing jobs aren't lost**—they are quickly recovered by other running nodes or immediately when the node is restarted. So that means jobs are going to be re-run by other node.
+
+---
 
 Oban guarantee at-least-once execution of jobs regardless of node failures, netsplits or even database restarts.
-
----
 
 it strives to never execute a job more than once, however, this may be unavoidable in certain failure scenarios such as
 
@@ -335,31 +338,29 @@ For this reason jobs should be made idempotent where possible.
 
 ---
 
-_Question_: Let's say we have multiple jobs that depends on the result of another job. Is there a way to ensure the second job to run on the same node that runs the first job? In other words, is there a way to specify the node to run on when enqueuing a job?
+**_Question_**: Let's say we have multiple jobs that depends on the result of another job. Is there a way to ensure the second job to run on the same node that runs the first job? In other words, is there a way to specify the node to run on when enqueuing a job?
 
 ---
 
-_Answer_: I don't think so, i don't know any queue or job processing system that works in this way, as they try to parallelize the jobs running on multiple processes/nodes, we would need to build a solution for this case, fork oban and try to add this feature or maybe keep using our current solution and use oban when this is not required
+**_Answer_**: I don't think so, i don't know any queue or job processing system that works in this way, as they try to parallelize the jobs running on multiple processes/nodes, we would need to build a solution for this case, fork oban and try to add this feature or maybe keep using our current solution and use oban when this is not required
 
 ---
 
-_Question_: What if we need to notify job completion (failed/succeeded)?
+**_Question_**: What if we need to notify job completion (failed/succeeded)?
 
 ---
 
-_Answer_: when we require to notify job completion we create a job in another queue (e.g notification_queue) for reporting back to the service interested in the notification, so we can retry this a high level of times. Then the other service will be consuming (polling) from that queue, jobs to mark jobs as failed/succeeded in its own service
+**_Answer_**: when we require to notify job completion we create a job in another queue (e.g notification_queue) for reporting back to the service interested in the notification, so we can retry this a high level of times. Then the other service will be consuming (polling) from that queue, jobs to mark jobs as failed/succeeded in its own service
 
 ---
 
-# Gotchas
+# Caveats
 
-**GOTCHA 1.** - Jobs are unique in a given period of time (60s by default), that means that after that period of time, the job can be enqueued again so we need to be really careful about this and think if we need unique jobs or we can run indempotent operations for each job.
+1. Jobs are unique in a given period of time (60s by default), that means that after that period of time, the job can be enqueued again so we need to be really careful about this and think if we need unique jobs or we can run indempotent operations for each job.
 
----
+2. We can't insert infinity records to PostgreSQL at once, so we need to insert sane default number of records, in this case 1000 records.
 
-**GOTCHA 2.** - We can't insert infinity records to PostgreSQL at once, so we need to insert sane default number of records, in this case 1000 records.
-
-**GOTCHA 3.** - As we are inserting a big amount of records to the DB we need to increase repo's timeouts as the transaction is going to take more than 15s (the default timeout)
+3. As we are inserting a big amount of records to the DB we need to increase repo's timeouts as the transaction is going to take more than 15s (the default timeout)
 
 ---
 
