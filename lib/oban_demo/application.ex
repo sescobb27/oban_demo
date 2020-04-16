@@ -30,6 +30,13 @@ defmodule ObanDemo.Application do
   end
 
   defp fast_pruner_config() do
-    [prune: {:maxage, :timer.seconds(20)}, queues: [:batch_queue]]
+    [
+      prune: {:maxage, :timer.seconds(20)},
+      queues: [
+        :batch_queue,
+        :parallel_multi_batch_queue,
+        :parallel_batch_queue
+      ]
+    ]
   end
 end
