@@ -47,3 +47,17 @@ ObanDemo.parallel_batch_insert(1..100_000)
 parallel_batch_insert_next = System.monotonic_time(:millisecond)
 parallel_batch_insert_next - parallel_batch_insert_prev
 ```
+
+## Scale Queue
+
+```elixir
+Oban.scale_queue(:parallel_batch_queue, 10)
+```
+
+## Check How Jobs Grow In DB
+
+```sql
+select count(*) from oban_jobs where queue='batch_queue';
+select count(*) from oban_jobs where queue='parallel_multi_batch_queue';
+select count(*) from oban_jobs where queue='parallel_batch_queue';
+```
